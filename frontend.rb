@@ -7,12 +7,15 @@ require 'yaml'
 require 'pp'
 require 'socket'
 require 'timeout'
+require 'logger'
 
 YAML::ENGINE.yamler='syck'
 ROOT= File.dirname(File.expand_path __FILE__)
 CONFIG_FILE= File.join ROOT, "config.yaml"
 $CONFIG=YAML.load File.read(CONFIG_FILE)
 pp $CONFIG
+
+LOGGER = Logger.new STDERR
 
 set :public_folder, File.dirname(__FILE__) + '/views'
 set :bind, $CONFIG[:bind] || '0.0.0.0'
@@ -49,8 +52,8 @@ helpers do
 
 		cwd = Dir.getwd
 		# FIXME: Hardcoded repo abspath
-		repo_abspath = cwd + "/.."
-		result_abspath = repo_abspath + "/result"
+		repo_abspath = $CONFIG[:repo_abspath]
+		result_abspath = $CONFIG[:result_abspath]
 		Dir.chdir File.join(repo_abspath, repo)
 
 		if File.executable_real? "formatter.py"
@@ -171,8 +174,8 @@ get '/' do
 	@status_line = []
 	begin
 		Timeout.timeout(2) do
-			s = TCPSocket.open($CONFIG[:ping][:frontend_addr], $CONFIG[:ping][:port]) 
-			while l = s.gets 
+			s = TCPSocket.open($CONFIG[:ping][:frontend_addr], $CONFIG[:ping][:port])
+			while l = s.gets
 				@status_line << l.chomp
 			end
 			s.close
@@ -187,4 +190,3 @@ get '/' do
 	@repos = $CONFIG[:repos]
 	erb :index, :locals => {}
 end
-
