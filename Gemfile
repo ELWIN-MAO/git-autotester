@@ -1,6 +1,6 @@
 source 'http://ruby.taobao.org/'
 
-gem 'grit'
+gem 'gitlab-grit'
 gem 'sinatra'
 gem 'mail'
 gem 'clockwork'
