@@ -331,7 +331,7 @@ class CompileRepo
 		#LOGGER_VERBOSE.info "fetching #{@name}"
 
 		begin
-			@repo.remote_fetch origin
+			@repo.remote_fetch 'origin'
 		rescue Grit::Git::GitTimeout => e
 			LOGGER.error "fetch #{@name} timeout: #{e}"
 			return
