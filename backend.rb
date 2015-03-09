@@ -19,6 +19,10 @@ YAML::ENGINE.yamler='syck'
 
 $CONFIG = Hash.new
 
+Mail.defaults do
+  delivery_method :sendmail
+end
+
 class Numeric
   def datetime_duration
     secs  = self.to_int
