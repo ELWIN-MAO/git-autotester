@@ -51,13 +51,18 @@ helpers do
 		formatter_output = ""
 
 		cwd = Dir.getwd
-		# FIXME: Hardcoded repo abspath
 		repo_abspath = $CONFIG[:repo_abspath]
 		result_abspath = $CONFIG[:result_abspath]
 		Dir.chdir File.join(repo_abspath, repo)
 
+		formatter = ""
 		if File.executable_real? "formatter.py"
-			command = "./formatter.py " + section + " " + result_abspath + " " + repo + " " + tid
+			formatter = "./formatter.py"
+		elsif File.executable_real? "labcodes/formatter.py"
+			formatter = "./labcodes/formatter.py"
+		end
+		if formatter != ""
+			command = formatter + " " + section + " " + result_abspath + " " + repo + " " + tid
 			result.each do |line|
 				text << line + "\n"
 			end
@@ -156,13 +161,13 @@ get '/repo/:repo/:tid' do
 	erb :result
 end
 
-get '/repo/:repo/:commit/:arch/:testcase' do
+get '/repo/:repo/:commit/:arch_or_lab/:testcase' do
 	repo = params[:repo]
 	commit = params[:commit]
-	arch = params[:arch]
+	arch_or_lab = params[:arch_or_lab]
 	testcase = params[:testcase]
-	filepath = File.join(Dir.getwd, "..", "result", repo, commit, arch, testcase + ".error")
-	@error = File.read(filepath).gsub(/\n/, '<br>') rescue "Error logs not found!"
+	filepath = File.join($CONFIG[:result_abspath], repo, commit, arch_or_lab, testcase + ".error")
+	@error = "<pre>" + File.read(filepath).gsub(/\n/, '<br>') + "</pre>" rescue "Error logs not found!"
 	erb :error
 end
 
