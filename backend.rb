@@ -147,7 +147,7 @@ end
 class Grit::Commit
 	def simplify
 		{:id => id, :author => author.simplify,
-		 :committer => committer.simplify, 
+		 :committer => committer.simplify,
 		 :authored_date => authored_date.to_s,
 		 :committed_date => committed_date.to_s,
 		 :message => message.split("\n").first
@@ -173,20 +173,20 @@ class CommitFilter
 end
 
 class TestGroup
-	attr_reader :phrases, :result
+	attr_reader :phases, :result
 	def initialize
-		@phrases = Array.new
+		@phases = Array.new
 		@result = Array.new
 	end
 
-	def push(phrase)
-		@phrases << phrase
+	def push(phase)
+		@phases << phase
 	end
 
 	def run_all
 		@result = Array.new
 		failed = false
-		@phrases.each do |p|
+		@phases.each do |p|
 			LOGGER.info "Running #{p.name}"
 			st = Time.now
 			#run it
@@ -202,7 +202,7 @@ class TestGroup
 		[failed, @result]
 	end
 
-	class TestPhrase
+	class TestPhase
 		attr_accessor :name, :cmd, :timeout
 		attr_reader :result
 		def initialize(_name, _cmd, _timeout=10)
@@ -241,8 +241,8 @@ class CompileRepo
 		@result_dir = File.join $CONFIG[:result_abspath], @name
 
 		@runner = TestGroup.new
-		@runner.push(TestGroup::TestPhrase.new "AutoBuild", './autobuild.sh', @build_timeout_s)
-		@runner.push(TestGroup::TestPhrase.new "AutoTest", './autotest.sh ' + @result_dir, @run_timeout_s)
+		@runner.push(TestGroup::TestPhase.new "AutoBuild", './labcodes/autobuild.sh', @build_timeout_s)
+		@runner.push(TestGroup::TestPhase.new "AutoTest", './labcodes/autotest.sh ' + @result_dir, @run_timeout_s)
 
 		begin
 			@repo = Grit::Repo.new config[:name]
@@ -389,7 +389,7 @@ class CompileRepo
 			LOGGER.info "too many commits, maybe new branch or rebased" if new_commits.length > 10
 
 			if new_commits.empty?
-				LOGGER.info "#{@name}:#{ref.name}:#{commitid} introduced no new commits after fiters, skip build"
+				LOGGER.info "#{@name}:#{ref.name}:#{commitid} introduced no new commits after filters, skip build"
 			else
 				run_test_for_commits ref, new_commits
 			end
@@ -467,4 +467,3 @@ end
 if __FILE__ == $0
 	startme
 end
-
