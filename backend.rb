@@ -173,24 +173,25 @@ class CommitFilter
 end
 
 class TestGroup
-	attr_reader :phases, :result
-	def initialize
+	attr_reader :phases, :dirs, :result
+	def initialize(_dirs)
 		@phases = Array.new
 		@result = Array.new
+		@dirs = _dirs
 	end
 
 	def push(phase)
 		@phases << phase
 	end
 
-	def run_all
+	def run_all(last_test_commit)
 		@result = Array.new
 		failed = false
 		@phases.each do |p|
 			LOGGER.info "Running #{p.name}"
 			st = Time.now
 			#run it
-			res = p.run
+			res = p.run dirs, last_test_commit
 			time = Time.now - st
 			@result << {:name => p.name, :time => time, :result => res}
 			## IMPORTANT
@@ -203,16 +204,29 @@ class TestGroup
 	end
 
 	class TestPhase
-		attr_accessor :name, :cmd, :timeout
+		attr_accessor :name, :cmd, :args, :timeout
 		attr_reader :result
-		def initialize(_name, _cmd, _timeout=10)
+		def initialize(_name, _cmd, _args, _timeout=10)
 			@name = _name
 			@cmd = _cmd
+			@args = _args
 			@timeout = _timeout
 		end
 
-		def run
-			@result = time_cmd @cmd, @timeout
+		def run(dirs, last_test_commit)
+			@result = {:timeout => false, :status => 255, :output => ""}
+			dirs.each do |dir|
+				script = File.join(dir, @cmd)
+				if File.executable_real? script
+					if last_test_commit == nil
+						@result = time_cmd (script + " " + args), @timeout
+					else
+						@result = time_cmd (script + " " + args + " " + last_test_commit), @timeout
+					end
+					break
+				end
+			end
+			return @result
 		end
 	end
 
@@ -240,9 +254,9 @@ class CompileRepo
 		@filters = config[:filters] || []
 		@result_dir = File.join $CONFIG[:result_abspath], @name
 
-		@runner = TestGroup.new
-		@runner.push(TestGroup::TestPhase.new "AutoBuild", './labcodes/autobuild.sh', @build_timeout_s)
-		@runner.push(TestGroup::TestPhase.new "AutoTest", './labcodes/autotest.sh ' + @result_dir, @run_timeout_s)
+		@runner = TestGroup.new ["./", "./labcodes"]
+		@runner.push(TestGroup::TestPhase.new "AutoBuild", "autobuild.sh", "", @build_timeout_s)
+		@runner.push(TestGroup::TestPhase.new "AutoTest", "autotest.sh", @result_dir, @run_timeout_s)
 
 		begin
 			@repo = Grit::Repo.new config[:name]
@@ -296,12 +310,12 @@ class CompileRepo
 		mail.deliver! rescue LOGGER.error "Fail to send mail to #{ref.commit.author.simplify}"
 	end
 
-	def run_test_for_commits(ref, new_commits)
+	def run_test_for_commits(ref, last_test_commit, current_commit, new_commits)
 
 		LOGGER.info "Repo #{@name}: OK, let's test branch #{ref.name}:#{ref.commit.id}"
 
 		#now begin test
-		failed, result = @runner.run_all
+		failed, result = @runner.run_all last_test_commit
 		ok = failed ? "FAIL" : "OK"
 		## we can use c.to_hash
 		commits_info = new_commits.map {|c| c.simplify }
@@ -391,7 +405,7 @@ class CompileRepo
 			if new_commits.empty?
 				LOGGER.info "#{@name}:#{ref.name}:#{commitid} introduced no new commits after filters, skip build"
 			else
-				run_test_for_commits ref, new_commits
+				run_test_for_commits ref, last_test_commit, commitid, new_commits
 			end
 
 			# mark it
