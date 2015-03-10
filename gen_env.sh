@@ -16,7 +16,7 @@ function getversion1
 
 
 uname -s -o -m > $OUT
-for i in gcc arm-eabi-gcc qemu-system-x86_64 gdb arm-eabi-gdb
+for i in bash make gcc arm-eabi-gcc qemu-system-x86_64 gdb arm-eabi-gdb python
 do
 	getversion "$i"
 done
