@@ -167,7 +167,9 @@ get '/repo/:repo/:commit/:arch_or_lab/:testcase' do
 	arch_or_lab = params[:arch_or_lab]
 	testcase = params[:testcase]
 	filepath = File.join($CONFIG[:result_abspath], repo, commit, arch_or_lab, testcase + ".error")
-	@error = "<pre>" + File.read(filepath).gsub(/\n/, '<br>') + "</pre>" rescue "Error logs not found!"
+	@error = File.read(filepath).gsub(/\n/, '<br>') rescue "Error logs not found!"
+	filepath = File.join($CONFIG[:result_abspath], repo, commit, arch_or_lab, testcase + ".log")
+	@log = File.read(filepath).gsub(/\n/, '<br>') rescue "Error logs not found!"
 	erb :error
 end
 
