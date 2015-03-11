@@ -1,0 +1,77 @@
+#!/bin/bash
+
+ABS_PATH=`realpath $0`
+ABS_DIR=`dirname $ABS_PATH`
+
+QUOTAS=$ABS_DIR/tickets.quota
+FREE_TICKETS=$ABS_DIR/.free_tickets
+CONSUMED_TICKETS=$ABS_DIR/.consumed_tickets
+
+COMMAND=$1
+ARG=$2
+
+case $1 in
+    init)
+	if [ -f $FREE_TICKETS ]; then
+	    mv $FREE_TICKETS $FREE_TICKETS.old
+	fi
+	if [ -f $CONSUMED_TICKETS ]; then
+	    mv $CONSUMED_TICKETS $CONSUMED_TICKETS.old
+	fi
+	cat $QUOTAS | while read line; do
+	    IFS="|" read -a array <<< "$line"
+	    for i in $(seq 1 ${array[1]}); do
+		echo "${array[0]}" >> $FREE_TICKETS
+	    done
+	    touch $CONSUMED_TICKETS
+	done
+	;;
+    consume)
+	if [ ! -n "$ARG" ]; then
+	    exit 1
+	fi
+	if grep -q "^$ARG$" $FREE_TICKETS; then
+	    sed -i "0,/$ARG/{s/$ARG//}" $FREE_TICKETS
+	    echo "$ARG" >> $CONSUMED_TICKETS
+	else
+	    exit 1
+	fi
+	;;
+    free)
+	if [ ! -n "$ARG" ]; then
+	    exit 1
+	fi
+	if grep -q "^$ARG$" $CONSUMED_TICKETS; then
+	    sed -i "0,/$ARG/{s/$ARG//}" $CONSUMED_TICKETS
+	    echo "$ARG" >> $FREE_TICKETS
+	else
+	    exit 1
+	fi
+	;;
+    stat)
+	case $ARG in
+	    free)
+		sed -i "/^$/d" $FREE_TICKETS
+		sort $FREE_TICKETS | uniq -c
+		;;
+	    consumed)
+		sed -i "/^$/d" $CONSUMED_TICKETS
+		sort $CONSUMED_TICKETS | uniq -c
+		;;
+	esac
+	;;
+    user)
+	if [ ! -n "$ARG" ]; then
+	    exit 1
+	fi
+	if ! grep -E -q "^$ARG\|[0-9]+$" $QUOTAS; then
+	    exit 1
+	fi
+	;;
+    gc)
+	sed -i "/^$/d" $FREE_TICKETS
+	sed -i "/^$/d" $CONSUMED_TICKETS
+	;;
+esac
+
+exit 0
