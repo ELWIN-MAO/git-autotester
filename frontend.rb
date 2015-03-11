@@ -9,10 +9,18 @@ require 'socket'
 require 'timeout'
 require 'logger'
 
+
+def md5sum fn
+    md5 = `md5sum #{fn}`
+    fail if $?.exitstatus != 0
+    md5
+end
+
 YAML::ENGINE.yamler='syck'
 ROOT= File.dirname(File.expand_path __FILE__)
 CONFIG_FILE= File.join ROOT, "config.yaml"
 $CONFIG=YAML.load File.read(CONFIG_FILE)
+CONFIG_MD5 = md5sum CONFIG_FILE
 pp $CONFIG
 
 LOGGER = Logger.new STDERR
@@ -173,6 +181,29 @@ get '/repo/:repo/:commit/:arch_or_lab/:testcase' do
     erb :error
 end
 
+get '/register' do
+    if not $CONFIG[:registration][:enable]
+        erb :no_register
+    else
+        @repo = params[:repo]
+        @email = params[:email]
+        if @repo != nil and @email != nil
+            File.open($CONFIG[:registration][:queue], "a") do |f|
+                f.puts "#{@repo}|#{@email}"
+            end
+            erb :register_done
+        else
+            erb :register
+        end
+    end
+end
+
+get '/test' do
+    @error = params[:repo]
+    @log = "nothing"
+    erb :error
+end
+
 get '/about' do
     erb :about
 end
@@ -194,6 +225,11 @@ get '/' do
     end
     @env = File.read(File.join(ROOT, "env.txt")) rescue "Unknown"
 
+    new_config_md5 = md5sum CONFIG_FILE
+    if CONFIG_MD5 != new_config_md5
+        $CONFIG = YAML.load File.read(CONFIG_FILE)
+        CONFIG_MD5 = new_config_md5
+    end
     @repos = $CONFIG[:repos]
     erb :index, :locals => {}
 end

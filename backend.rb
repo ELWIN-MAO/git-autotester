@@ -214,7 +214,7 @@ class TestGroup
         end
 
         def run(dirs, last_test_commit)
-            @result = {:timeout => false, :status => 255, :output => ""}
+            @result = {:timeout => false, :status => 255, :output => []}
             dirs.each do |dir|
                 script = File.join(dir, @cmd)
                 if File.executable_real? script
@@ -263,7 +263,7 @@ class CompileRepo
             fail "Fail to clone #{@url}" if $?.exitstatus != 0
             @repo = Grit::Repo.new config[:name]
         end
-        LOGGER.info "Repo #{@name} ready!"
+        # LOGGER.info "Repo #{@name} ready!"
         @repo.remotes.each { |r| puts "  #{r.name} #{r.commit.id}" }
     end
 
@@ -418,11 +418,10 @@ class CompileRepo
             new_compiled_list.each {|e| f.puts e}
         end
     end
-
 end
 
 def create_all_repo
-    LOGGER.info "Create or checkout all repos"
+    # LOGGER.info "Create or checkout all repos"
     repos = Hash.new
     $CONFIG[:repos].each do |r|
         begin
@@ -434,7 +433,7 @@ def create_all_repo
         end
         report_dir = File.join $CONFIG[:result_abspath], r[:name]
         unless File.directory? report_dir
-            `mkdir #{report_dir}`
+            `mkdir -p #{report_dir}`
             #`mkdir #{File.join report_dir, 'compile'}`
             #`mkdir #{File.join report_dir, 'running'}`
         end
@@ -446,6 +445,155 @@ def start_logger_server
     Thread.start do
         LOGGER.server_loop $CONFIG[:ping][:backend_addr], $CONFIG[:ping][:port]
     end
+end
+
+def register_repo(name, url)
+    File.open(CONFIG_FILE, "a") do |f|
+        f.puts ""
+        f.puts "        - :name: \"#{name}\""
+        f.puts "          :url: \"#{url}\""
+        f.puts "          :blacklist:"
+        f.puts "          :build_timeout_min: 10"
+        f.puts "          :run_timeout_min: 30"
+        f.puts "          :nomail: false"
+        f.puts "          :filters:"
+        f.puts "                - [ \"ext\", [\".c\", \".h\", \".S\", \".sh\", \".s\", \".md\", ""] ]"
+    end
+end
+
+def notify!(email, subject, body)
+    conf = $CONFIG[:mail]
+    mail = Mail.new do
+        from conf[:from]
+        to   email
+        cc   conf[:cc] || []
+        subject subject
+        body body.join("\n")
+    end
+    mail.deliver! rescue LOGGER.error "Fail to send mail to #{email}"
+end
+
+def notify_dup(repo, email, repo_name)
+    dm = $CONFIG[:domain_name] || "localhost"
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "#{email}:#{repo} has already been registered. You can get the test list at #{dm}/repo/#{repo_name}/."
+    b << ""
+    b << "If this is not yours, please post about the incident on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][FAIL] #{repo} has already been registered", b)
+end
+
+def notify_nouser(repo, email, repo_name)
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "#{email} is not allowed to register any repo in our system. Only students enrolled on Piazza(#{piazza}) are given access to the system."
+    b << ""
+    b << "If you have enrolled the class, please check:"
+    b << "    1. if #{email} is the exact mail address you have used on Piazza, and"
+    b << "    2. if you enrolled the class before we fetch the student list (around 14 March)."
+    b << ""
+    b << "For any questions (including asking for access if you enrolled the class late), please post on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][FAIL] #{email} is not allowed to register repos", b)
+end
+
+def notify_noticket(repo, email, repo_name)
+    dm = $CONFIG[:domain_name] || "localhost"
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "#{email} has already reached its repo quota in our system. Please check #{dm} which has all registered repos listed. Your repos should starts with #{email}."
+    b << ""
+    b << "If you have no repo listed on the page, please post the incident on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][FAIL] #{email} has used up its quota", b)
+end
+
+def notify_norepo(repo, email, repo_name)
+    dm = $CONFIG[:domain_name] || "localhost"
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "We cannot clone #{repo} by 'git clone #{repo}'"
+    b << ""
+    b << "Please check if your repo is publicly accessible. We do NOT support repos using ssh keys or requiring accounts."
+    b << ""
+    b << "For any other problem, please post your incident on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][FAIL] #{repo} is not a valid repo", b)
+end
+
+def notify_noemail(repo, email, repo_name)
+    dm = $CONFIG[:domain_name] || "localhost"
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "It seems #{email} is not an author of #{repo}."
+    b << ""
+    b << "We assume you are the only author of #{repo} (which should be the case for our OS course labs). Please make sure that you are the author of your HEAD commit of the master branch. To see the author of the HEAD commit, you can execute the following command:"
+    b << ""
+    b << "    $ git log"
+    b << ""
+    b << "This will print something like:"
+    b << ""
+    b << "    commit f253c3fe55f337ca5ab4a3e8202183322e9def1e"
+    b << "    Author: Junjie Mao <eternal.n08@gmail.com>"
+    b << "    Date:   Tue Mar 10 10:41:28 2015 +0800"
+    b << "    ......"
+    b << ""
+    b << "The \"Author\" field is what we check. Please ensure that the email address in the field is the same as the one in your request."
+    b << ""
+    b << "If the repo is a pure fork of for now, or you have commit some changes with the wrong author information, please execute the following commands in your repo:"
+    b << ""
+    b << "    $ git config user.email \"<Your Mail Address>\""
+    b << "    $ git config user.name \"<Your Name>\""
+    b << ""
+    b << "and then commit with some dummy changes (e.g. appending an empty line to README.md). Once you have pushed with the right Author information in the HEAD commit, please resend your requeston #{dm}/register."
+    b << ""
+    b << "For any problem, please post your incident on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][FAIL] #{email} is not an author of #{repo}", b)
+end
+
+def notify_ok(repo, email, repo_name)
+    dm = $CONFIG[:domain_name] || "localhost"
+    piazza = $CONFIG[:mail][:piazza]
+
+    b = []
+    b << "Hi,"
+    b << ""
+    b << "Congratulations! Your repo #{repo} has been successfully registered and will be tested everytime you push your changes."
+    b << ""
+    b << "The full test list is available at #{dm}/repo/#{repo_name}/. Each commit will link you to a report with details."
+    b << ""
+    b << "For any problem, please post your incident on Piazza(#{piazza}). Mails to this address will be silently dropped. Thanks."
+    b << ""
+    b << "From Git autotest system"
+
+    notify!(email, "[Autotest][OK] #{email}:#{repo} has been registered", b)
 end
 
 def startme
@@ -464,12 +612,50 @@ def startme
             Grit::Git.git_timeout = $CONFIG[:git_timeout] || 10
             start_logger_server
         end
+
         repos.each do |k,v|
             #chdir first
             Dir.chdir File.join($CONFIG[:repo_abspath], k)
             v.start_test
             Dir.chdir $CONFIG[:repo_abspath]
         end
+
+        Dir.chdir ROOT
+        if File.file?($CONFIG[:registration][:queue])
+            cmd_output = []
+            begin
+                pipe = IO.popen("bash register.sh " + $CONFIG[:registration][:queue])
+                pipe.each_line {|l| cmd_output << l.chomp}
+                Process.waitpid2(pipe.pid)
+            rescue Exception => e
+                LOGGER.error "registration failed"
+            end
+
+            f = File.open($CONFIG[:registration][:history], "a")
+            cmd_output.each do |line|
+                LOGGER.info line
+                f.puts line
+                status, repo, email = line.split('|')
+                repo_name = "#{email}:#{repo.split('/')[-1]}"
+                case status
+                when "DUP"
+                    notify_dup(repo, email, repo_name)
+                when "NOUSER"
+                    notify_nouser(repo, email, repo_name)
+                when "NOTICKET"
+                    notify_noticket(repo, email, repo_name)
+                when "NOREPO"
+                    notify_norepo(repo, email, repo_name)
+                when "NOMAIL"
+                    notify_noemail(repo, email, repo_name)
+                when "OK"
+                    register_repo repo_name, repo
+                    notify_ok(repo, email, repo_name)
+                end
+            end
+            f.close()
+        end
+
         sleep ($CONFIG[:sleep] || 30)
         LOGGER.ping
     end

@@ -5,6 +5,11 @@
 :git_timeout: 20
 :domain_name: "os.cs.tsinghua.edu.cn:3100"
 
+:registration:
+        :enable: false
+        :queue: "registration_queue.txt"
+        :history: "registration_history"
+
 :ping:
         :backend_addr: "127.0.0.1"
         :frontend_addr: "127.0.0.1"
@@ -41,5 +46,3 @@
           :nomail: true
           :filters:
                 - [ "ext", [".c", ".h", ".S", ".sh", ".s", ""] ]
-
-

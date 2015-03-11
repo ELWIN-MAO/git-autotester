@@ -19,4 +19,4 @@ doc/
 
 *.yaml
 *.log
-env.txt
+*.txt
