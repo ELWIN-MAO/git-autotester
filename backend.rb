@@ -274,7 +274,7 @@ class CompileRepo
         conf = $CONFIG[:mail]
         dm = $CONFIG[:domain_name] || "localhost"
         b = []
-        b << "Hi, #{ref.commit.author.name}:"
+        b << "Hi, #{ref.commit.author.name}:\n"
         b << "Here is a report from autotest system, please visit: http://#{dm}"
         b << "#{Time.now}"
         b << "===================================\n"
@@ -447,7 +447,7 @@ def start_logger_server
     end
 end
 
-def register_repo(name, url, is_public)
+def register_repo(name, url, email, is_public)
     File.open(CONFIG_FILE, "a") do |f|
         f.puts ""
         f.puts "        - :name: \"#{name}\""
@@ -456,6 +456,9 @@ def register_repo(name, url, is_public)
         f.puts "          :build_timeout_min: 10"
         f.puts "          :run_timeout_min: 30"
         f.puts "          :nomail: false"
+        if email != nil
+            f.puts "          :cc: [\"#{email}\"]"
+        end
         f.puts "          :public: #{is_public}"
         f.puts "          :filters:"
         f.puts "                - [ \"ext\", [\".c\", \".h\", \".S\", \".sh\", \".s\", \".md\", ""] ]"
@@ -633,22 +636,22 @@ def startme
 
         cmd_output.each do |line|
             LOGGER.info line
-            status, repo, email, is_public = line.split('|')
-            repo_name = "#{email}:#{repo.split('/')[-1]}"
+            status, repo_url, email, is_public = line.split('|')
+            repo_name = "#{email}:#{repo_url.split('/')[-1]}"
             case status
             when "DUP"
-                notify_dup(repo, email, repo_name)
+                notify_dup(repo_url, email, repo_name)
             when "NOUSER"
-                notify_nouser(repo, email, repo_name)
+                notify_nouser(repo_url, email, repo_name)
             when "NOTICKET"
-                notify_noticket(repo, email, repo_name)
+                notify_noticket(repo_url, email, repo_name)
             when "NOREPO"
-                notify_norepo(repo, email, repo_name)
+                notify_norepo(repo_url, email, repo_name)
             when "NOMAIL"
-                notify_noemail(repo, email, repo_name)
+                notify_noemail(repo_url, email, repo_name)
             when "OK"
-                register_repo repo_name, repo, is_public
-                notify_ok(repo, email, repo_name)
+                register_repo repo_name, repo_url, email, is_public
+                notify_ok(repo_url, email, repo_name)
             end
         end
 
