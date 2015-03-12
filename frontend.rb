@@ -199,12 +199,6 @@ get '/register' do
     end
 end
 
-get '/test' do
-    @error = params[:repo]
-    @log = "nothing"
-    erb :error
-end
-
 get '/about' do
     erb :about
 end
