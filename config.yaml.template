@@ -37,6 +37,7 @@
           :build_timeout_min: 10
           :run_timeout_min: 30
           :nomail: true
+          :public: true
           :filters:
                 - [ "ext", [".c", ".h", ".S", ".sh", ".s", ""] ]
 
@@ -44,5 +45,6 @@
           :url: "/home/chenyh/os/autobuild_tester"
           :whitelist: [ "automerge-.+" ]
           :nomail: true
+          :public: false
           :filters:
                 - [ "ext", [".c", ".h", ".S", ".sh", ".s", ""] ]

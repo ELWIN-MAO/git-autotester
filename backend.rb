@@ -447,7 +447,7 @@ def start_logger_server
     end
 end
 
-def register_repo(name, url)
+def register_repo(name, url, is_public)
     File.open(CONFIG_FILE, "a") do |f|
         f.puts ""
         f.puts "        - :name: \"#{name}\""
@@ -456,6 +456,7 @@ def register_repo(name, url)
         f.puts "          :build_timeout_min: 10"
         f.puts "          :run_timeout_min: 30"
         f.puts "          :nomail: false"
+        f.puts "          :public: #{is_public}"
         f.puts "          :filters:"
         f.puts "                - [ \"ext\", [\".c\", \".h\", \".S\", \".sh\", \".s\", \".md\", ""] ]"
     end
@@ -632,7 +633,7 @@ def startme
 
         cmd_output.each do |line|
             LOGGER.info line
-            status, repo, email = line.split('|')
+            status, repo, email, is_public = line.split('|')
             repo_name = "#{email}:#{repo.split('/')[-1]}"
             case status
             when "DUP"
@@ -646,7 +647,7 @@ def startme
             when "NOMAIL"
                 notify_noemail(repo, email, repo_name)
             when "OK"
-                register_repo repo_name, repo
+                register_repo repo_name, repo, is_public
                 notify_ok(repo, email, repo_name)
             end
         end

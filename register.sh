@@ -9,6 +9,7 @@ $REQUEST fetch $REQUEST_QUEUE | sort | uniq | while read line; do
     IFS="|" read -a array <<< "$line"
     repo="${array[0]}"
     email="${array[1]}"
+    is_public="${array[2]}"
 
     # Do we have this repo already registered?
     if grep -q "$email:${repo##*/}" config.yaml; then

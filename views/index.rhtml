@@ -22,7 +22,9 @@ Copyright (C) 2014-2015 Junjie Mao
 <h2>Repo List:</h2>
 <ul class="repo-list">
 	<% @repos.each do |r| %>
-		<li><a href="/repo/<%= r[:name] %>/"><%= r[:name] %></a></li>
+		<% if r[:public] %>
+			<li><a href="/repo/<%= r[:name] %>/"><%= r[:name] %></a></li>
+		<% end %>
 	<% end %>
 </ul>
 <hr />

@@ -20,7 +20,7 @@ YAML::ENGINE.yamler='syck'
 ROOT= File.dirname(File.expand_path __FILE__)
 CONFIG_FILE= File.join ROOT, "config.yaml"
 $CONFIG=YAML.load File.read(CONFIG_FILE)
-CONFIG_MD5 = md5sum CONFIG_FILE
+config_md5 = md5sum CONFIG_FILE
 pp $CONFIG
 
 REQUEST=File.join ROOT, "request_mgmt", "request"
@@ -187,10 +187,11 @@ get '/register' do
     if not $CONFIG[:registration][:enable]
         erb :no_register
     else
-        @repo = params[:repo]
-        @email = params[:email]
-        if @repo != nil and @email != nil
-            `#{REQUEST} append #{$CONFIG[:registration][:queue]} "#{@repo}|#{@email}"`
+        repo = params[:repo]
+        email = params[:email]
+        is_public = params[:is_public] == "on" ? "true" : "false"
+        if repo != nil and email != nil
+            `#{REQUEST} append #{$CONFIG[:registration][:queue]} "#{repo}|#{email}|#{is_public}"`
             erb :register_done
         else
             erb :register
@@ -226,9 +227,9 @@ get '/' do
     @env = File.read(File.join(ROOT, "env.txt")) rescue "Unknown"
 
     new_config_md5 = md5sum CONFIG_FILE
-    if CONFIG_MD5 != new_config_md5
+    if config_md5 != new_config_md5
         $CONFIG = YAML.load File.read(CONFIG_FILE)
-        CONFIG_MD5 = new_config_md5
+        config_md5 = new_config_md5
     end
     @repos = $CONFIG[:repos]
     erb :index, :locals => {}
