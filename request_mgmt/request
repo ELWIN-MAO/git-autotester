@@ -27,13 +27,16 @@ case $COMMAND in
 	fi
 	;;
     fetch)
+	touch $QUEUE_FILE
 	touch $PENDING_FILE
 	cat $QUEUE_FILE | sed "s/\[[^]]*\] //"
 	;;
     archive)
+	touch $QUEUE_FILE
 	cat $QUEUE_FILE >> $HISTORY_FILE
 	;;
     archive-unique)
+	touch $QUEUE_FILE
 	cat $QUEUE_FILE | sort -s -t ] -k 2 | uniq -s 22 | sort >> $HISTORY_FILE
 	;;
     clean)

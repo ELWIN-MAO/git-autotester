@@ -10,6 +10,13 @@
         :queue: "registration_queue.txt"
         :history: "registration_history"
 
+:marking:
+        :enable: false
+        :authorized_users: "oscourse/students.txt"
+        :queue: "marking"
+        :grade: "oscourse/grade.sh"
+        :respond_cmd: "oscourse/respond.rb"
+
 :ping:
         :backend_addr: "127.0.0.1"
         :frontend_addr: "127.0.0.1"

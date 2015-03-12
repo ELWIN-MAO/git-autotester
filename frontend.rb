@@ -199,6 +199,21 @@ get '/register' do
     end
 end
 
+get '/mooc_marking' do
+    if not $CONFIG[:marking][:enable]
+        halt 403, "marking is disabled"
+    else
+        id = params[:id]
+        lab = params[:lab]
+        if id != nil and lab != nil
+            `#{REQUEST} append #{$CONFIG[:marking][:queue]} "#{id}|#{lab}"`
+            halt 200, "request queued"
+        else
+            halt 400, "require id and lab"
+        end
+    end
+end
+
 get '/about' do
     erb :about
 end

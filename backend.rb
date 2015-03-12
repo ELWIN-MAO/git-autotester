@@ -14,6 +14,8 @@ ROOT= File.dirname(File.expand_path __FILE__)
 CONFIG_FILE= File.join ROOT, "config.yaml"
 puts CONFIG_FILE
 
+REQUEST=File.join ROOT, "request_mgmt", "request"
+
 # quick fix to get correct string encoding
 YAML::ENGINE.yamler='syck'
 
@@ -251,6 +253,8 @@ class CompileRepo
         @filters = config[:filters] || []
         @result_dir = File.join $CONFIG[:result_abspath], @name
 
+        @cc = config[:cc] || []
+
         @runner = TestGroup.new ["./", "./labcodes"]
         @runner.push(TestGroup::TestPhase.new "AutoBuild", "autobuild.sh", "", @build_timeout_s)
         @runner.push(TestGroup::TestPhase.new "AutoTest", "autotest.sh", @result_dir, @run_timeout_s)
@@ -299,7 +303,7 @@ class CompileRepo
         mail = Mail.new do
             from conf[:from]
             to   ref.commit.author.email
-            cc   conf[:cc] || []
+            cc   (conf[:cc] || []) + @cc
             subject "[Autotest][#{result[:ok]}] #{repo_name}:#{ref.name} #{ref.commit.id}"
             body b.join("\n")
             add_file report_file if report_file
@@ -420,25 +424,48 @@ class CompileRepo
     end
 end
 
-def create_all_repo
-    # LOGGER.info "Create or checkout all repos"
-    repos = Hash.new
-    $CONFIG[:repos].each do |r|
+class Repos
+    attr_reader :repos, :idx_url
+
+    def initialize
+        @repos = Hash.new
+        @idx_url = Hash.new
+
+        $CONFIG[:repos].each do |r|
+            begin
+                repo = CompileRepo.new r
+                @repos[ r[:name] ] = repo
+                @idx_url[ r[:url] ] = repo
+            rescue StandardError => e
+                error "#{r[:name]} #{e} not available, skip"
+                puts e.backtrace
+                next
+            end
+            report_dir = File.join $CONFIG[:result_abspath], r[:name]
+            unless File.directory? report_dir
+                `mkdir -p #{report_dir}`
+            end
+        end unless $CONFIG[:repos] == nil
+    end
+end
+
+class Authorized
+    attr_reader :idx_id
+
+    def initialize _list
+        @authorized = Array.new
+        @idx_id = Hash.new
+
         begin
-            repos[ r[:name] ] = CompileRepo.new r
-        rescue StandardError => e
-            error "#{r[:name]} #{e} not available, skip"
-            puts e.backtrace
-            next
-        end
-        report_dir = File.join $CONFIG[:result_abspath], r[:name]
-        unless File.directory? report_dir
-            `mkdir -p #{report_dir}`
-            #`mkdir #{File.join report_dir, 'compile'}`
-            #`mkdir #{File.join report_dir, 'running'}`
+            File.readlines(_list).each do |l|
+                id, name, stuid, email, url = l.chomp().split('|')
+                entry = {:id => id, :name => name, :stuid => stuid, :email => email, :url => url}
+                @authorized << entry
+                @idx_id[id] = entry
+            end
+        rescue Exception
         end
     end
-    repos
 end
 
 def start_logger_server
@@ -452,7 +479,7 @@ def register_repo(name, url, email, is_public)
         f.puts ""
         f.puts "        - :name: \"#{name}\""
         f.puts "          :url: \"#{url}\""
-        f.puts "          :blacklist:"
+        f.puts "          :whitelist: [\"origin/master\"]"
         f.puts "          :build_timeout_min: 10"
         f.puts "          :run_timeout_min: 30"
         f.puts "          :nomail: false"
@@ -600,9 +627,84 @@ def notify_ok(repo, email, repo_name)
     notify!(email, "[Autotest][OK] #{email}:#{repo} has been registered", b)
 end
 
+def process_registration()
+    Dir.chdir ROOT
+    cmd_output = []
+    begin
+        pipe = IO.popen("bash register.sh " + $CONFIG[:registration][:queue])
+        pipe.each_line {|l| cmd_output << l.chomp}
+        Process.waitpid2(pipe.pid)
+    rescue Exception => e
+        LOGGER.error "registration failed"
+    end
+
+    cmd_output.each do |line|
+        LOGGER.info line
+        status, repo_url, email, is_public = line.split('|')
+        repo_name = "#{email}:#{repo_url.split('/')[-1]}"
+        case status
+        when "DUP"
+            notify_dup(repo_url, email, repo_name)
+        when "NOUSER"
+            notify_nouser(repo_url, email, repo_name)
+        when "NOTICKET"
+            notify_noticket(repo_url, email, repo_name)
+        when "NOREPO"
+            notify_norepo(repo_url, email, repo_name)
+        when "NOMAIL"
+            notify_noemail(repo_url, email, repo_name)
+        when "OK"
+            register_repo(repo_name, repo_url, email, is_public)
+            notify_ok(repo_url, email, repo_name)
+        end
+    end
+end
+
+def respond(id, lab, score)
+    # Default responding method. Does nothing
+end
+
+def process_marking(authorized, repos)
+    # Assumptions:
+    #   1. duplicate requests are ok
+    #   2. the repo urls in the Authorized info are always valid
+    Dir.chdir ROOT
+    cmd_output = []
+    begin
+        pipe = IO.popen("#{REQUEST} fetch #{$CONFIG[:marking][:queue]}")
+        pipe.each_line {|l| cmd_output << l.chomp}
+        Process.waitpid2(pipe.pid)
+    rescue Exception => e
+        LOGGER.error "marking failed"
+    end
+
+    cmd_output.each do |line|
+        id, lab = line.split('|')
+        user = authorized.idx_id[id]
+        repo_url = user[:url]
+        repo = repos.idx_url[repo_url]
+        if repo == nil
+            repo_name = "#{user[:email]}:#{user[:url].split('/')[-1]}"
+            register_repo(repo_name, repo_url, user[:email], false)
+            # push the request back to the queue so that we can process it in
+            # our next loop when the registered repo is tested
+            `#{REQUEST} append #{$CONFIG[:marking][:queue]} "#{line}"`
+        else
+            report_dir = File.join $CONFIG[:result_abspath], repo.name
+            score = `#{$CONFIG[:marking][:grade]} #{report_dir} #{lab}`.chomp()
+            score = "0" unless score != ""
+            LOGGER.info "#{id}/#{lab}: #{score}"
+            respond id, lab, score
+        end
+    end
+
+    `bash request_mgmt/request archive #{$CONFIG[:marking][:queue]}`
+end
+
 def startme
     old_config_md5 = nil
-    repos = Hash.new
+    repos = Repos.new
+    authorized = Authorized.new nil
     loop do
         config_md5 = md5sum CONFIG_FILE
         if config_md5 != old_config_md5
@@ -611,49 +713,27 @@ def startme
             puts "============================"
             $CONFIG = YAML.load File.read(CONFIG_FILE)
             old_config_md5 = config_md5
+
+            require_relative "#{$CONFIG[:marking][:respond_cmd]}"
+
+            authorized = Authorized.new $CONFIG[:marking][:authorized_users]
+
             Dir.chdir $CONFIG[:repo_abspath]
-            repos = create_all_repo
+            repos = Repos.new
             Grit::Git.git_timeout = $CONFIG[:git_timeout] || 10
+
             start_logger_server
         end
 
-        repos.each do |k,v|
-            #chdir first
+        repos.repos.each do |k,v|
             Dir.chdir File.join($CONFIG[:repo_abspath], k)
             v.start_test
             Dir.chdir $CONFIG[:repo_abspath]
         end
 
-        Dir.chdir ROOT
-        cmd_output = []
-        begin
-            pipe = IO.popen("bash register.sh " + $CONFIG[:registration][:queue])
-            pipe.each_line {|l| cmd_output << l.chomp}
-            Process.waitpid2(pipe.pid)
-        rescue Exception => e
-            LOGGER.error "registration failed"
-        end
+        process_registration unless not $CONFIG[:registration][:enable]
 
-        cmd_output.each do |line|
-            LOGGER.info line
-            status, repo_url, email, is_public = line.split('|')
-            repo_name = "#{email}:#{repo_url.split('/')[-1]}"
-            case status
-            when "DUP"
-                notify_dup(repo_url, email, repo_name)
-            when "NOUSER"
-                notify_nouser(repo_url, email, repo_name)
-            when "NOTICKET"
-                notify_noticket(repo_url, email, repo_name)
-            when "NOREPO"
-                notify_norepo(repo_url, email, repo_name)
-            when "NOMAIL"
-                notify_noemail(repo_url, email, repo_name)
-            when "OK"
-                register_repo repo_name, repo_url, email, is_public
-                notify_ok(repo_url, email, repo_name)
-            end
-        end
+        process_marking authorized, repos unless not $CONFIG[:marking][:enable]
 
         sleep ($CONFIG[:sleep] || 30)
         LOGGER.ping
