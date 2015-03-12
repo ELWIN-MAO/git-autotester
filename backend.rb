@@ -621,39 +621,34 @@ def startme
         end
 
         Dir.chdir ROOT
-        if File.file?($CONFIG[:registration][:queue])
-            cmd_output = []
-            begin
-                pipe = IO.popen("bash register.sh " + $CONFIG[:registration][:queue])
-                pipe.each_line {|l| cmd_output << l.chomp}
-                Process.waitpid2(pipe.pid)
-            rescue Exception => e
-                LOGGER.error "registration failed"
-            end
+        cmd_output = []
+        begin
+            pipe = IO.popen("bash register.sh " + $CONFIG[:registration][:queue])
+            pipe.each_line {|l| cmd_output << l.chomp}
+            Process.waitpid2(pipe.pid)
+        rescue Exception => e
+            LOGGER.error "registration failed"
+        end
 
-            f = File.open($CONFIG[:registration][:history], "a")
-            cmd_output.each do |line|
-                LOGGER.info line
-                f.puts line
-                status, repo, email = line.split('|')
-                repo_name = "#{email}:#{repo.split('/')[-1]}"
-                case status
-                when "DUP"
-                    notify_dup(repo, email, repo_name)
-                when "NOUSER"
-                    notify_nouser(repo, email, repo_name)
-                when "NOTICKET"
-                    notify_noticket(repo, email, repo_name)
-                when "NOREPO"
-                    notify_norepo(repo, email, repo_name)
-                when "NOMAIL"
-                    notify_noemail(repo, email, repo_name)
-                when "OK"
-                    register_repo repo_name, repo
-                    notify_ok(repo, email, repo_name)
-                end
+        cmd_output.each do |line|
+            LOGGER.info line
+            status, repo, email = line.split('|')
+            repo_name = "#{email}:#{repo.split('/')[-1]}"
+            case status
+            when "DUP"
+                notify_dup(repo, email, repo_name)
+            when "NOUSER"
+                notify_nouser(repo, email, repo_name)
+            when "NOTICKET"
+                notify_noticket(repo, email, repo_name)
+            when "NOREPO"
+                notify_norepo(repo, email, repo_name)
+            when "NOMAIL"
+                notify_noemail(repo, email, repo_name)
+            when "OK"
+                register_repo repo_name, repo
+                notify_ok(repo, email, repo_name)
             end
-            f.close()
         end
 
         sleep ($CONFIG[:sleep] || 30)

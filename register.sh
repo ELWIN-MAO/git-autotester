@@ -1,15 +1,11 @@
 #!/bin/bash
 
-REG_QUEUE=$1
-if [ ! -f $REG_QUEUE ]; then
-    exit 1
-fi
+ABS_PATH=`realpath $0`
+ABS_DIR=`dirname $ABS_PATH`
+REQUEST=$ABS_DIR/request_mgmt/request
 
-RND=$RANDOM
-
-mv $REG_QUEUE $REG_QUEUE.$RND
-
-sort $REG_QUEUE.$RND | uniq | while read line; do
+REQUEST_QUEUE=$1
+$REQUEST fetch $REQUEST_QUEUE | sort | uniq | while read line; do
     IFS="|" read -a array <<< "$line"
     repo="${array[0]}"
     email="${array[1]}"
@@ -51,4 +47,4 @@ sort $REG_QUEUE.$RND | uniq | while read line; do
     echo "OK|$line"
 done
 
-rm $REG_QUEUE.$RND
+$REQUEST archive-unique $REQUEST_QUEUE

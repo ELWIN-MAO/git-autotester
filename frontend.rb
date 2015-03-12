@@ -23,6 +23,8 @@ $CONFIG=YAML.load File.read(CONFIG_FILE)
 CONFIG_MD5 = md5sum CONFIG_FILE
 pp $CONFIG
 
+REQUEST=File.join ROOT, "request_mgmt", "request"
+
 LOGGER = Logger.new STDERR
 
 set :public_folder, File.dirname(__FILE__) + '/views'
@@ -188,9 +190,7 @@ get '/register' do
         @repo = params[:repo]
         @email = params[:email]
         if @repo != nil and @email != nil
-            File.open($CONFIG[:registration][:queue], "a") do |f|
-                f.puts "#{@repo}|#{@email}"
-            end
+            `#{REQUEST} append #{$CONFIG[:registration][:queue]} "#{@repo}|#{@email}"`
             erb :register_done
         else
             erb :register

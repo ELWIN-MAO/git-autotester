@@ -10,7 +10,7 @@ CONSUMED_TICKETS=$ABS_DIR/.consumed_tickets
 COMMAND=$1
 ARG=$2
 
-case $1 in
+case $COMMAND in
     init)
 	if [ -f $FREE_TICKETS ]; then
 	    mv $FREE_TICKETS $FREE_TICKETS.old
