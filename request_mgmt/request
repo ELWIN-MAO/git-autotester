@@ -21,23 +21,23 @@ case $COMMAND in
 	    exit 1
 	fi
 	if [ -f $PENDING_FILE ]; then
-	    echo $ARG >> $PENDING_FILE
+	    echo [`date +"%F %T"`] $ARG >> $PENDING_FILE
 	else
-	    echo $ARG >> $QUEUE_FILE
+	    echo [`date +"%F %T"`] $ARG >> $QUEUE_FILE
 	fi
 	;;
     fetch)
 	touch $PENDING_FILE
-	cat $QUEUE_FILE
+	cat $QUEUE_FILE | sed "s/\[[^]]*\] //"
 	;;
     archive)
 	cat $QUEUE_FILE >> $HISTORY_FILE
 	;;
     archive-unique)
-	cat $QUEUE_FILE | sort | uniq >> $HISTORY_FILE
+	cat $QUEUE_FILE | sort -s -t ] -k 2 | uniq -s 22 | sort >> $HISTORY_FILE
 	;;
     clean)
-	rm $QUEUE_HISTORY
+	rm $HISTORY_FILE
 	;;
 esac
 
