@@ -1,74 +1,31 @@
 About Autobuild
-===========
+===============
 
-This Autobuild System is designed to undertake the building and testing 
+This Autobuild System is designed to undertake the building and testing
 process automatically. It depends on the following packages:
 
 + Git
 + Bash
 + Exim4 (for mailing)
-+ RVM (ruby 1.9.3)
-
++ Ruby 1.9.3 or newer, with bundle
++ All dependencies required by repos under testing
 
 Deployment
-============
+==========
 
-Use uCore for example. 
+Install required ruby gems first:
 
-1. First, you must create a working directory.
+    git-autotester$ bundle install
 
-*mkdir work*
+Then create the configuration file based on the template:
 
-*cd work*
+    git-autotester$ cp config.yaml.template config.yaml
 
-2. Then, download the git-build.py from my [Repo](https://github.com/chyh1990/autobuild_tester),
-put it into *work*.
+After Updating the fields named repo\_abspath, result\_abspath and repos, start
+the service:
 
-3. Clone your Repo which you wanted to be built automatically.
-Make sure using the *Readonly* URL.
+    git-autotester$ ruby frontend.rb & > frontend.log 2>&1
+    git-autotester$ ruby backend.rb & > backend.log 2>&1
 
-*git clone https://github.com/chyh1990/autobuild_tester*
-
-4. Configure the git-build.py, see the following section.
-
-5. Setup the Service Hook in Github.
-
-Click Admin -> Service Hooks -> WebHook URLs.
-
-
-Configuration
-===========
-To make it simple, all options are in gitbuild_config.py, and no extra configure files.
-
-+ PORT_NUMBER: listening port of the HTTP server
-+ CLIENT_IPS:  only POST requests from these hosts will trigger the auto-build.
-+ REPO_NAME:   the name of your target Repo
-+ LOCAL_REPO:  the path of its local clone
-
-
-Testing
-===========
-Run the python server:
-
-*nohup python git-build.py*
-
-Then open the web browser, goto 
-http://127.0.0.1:PORT_NUMBER/
-
-You should be able to see the start page.
-
-When someone pulls commits to the Repo, it will trigger the auto-building and auto-testing.
-This means a Git fetch action and then the *autobuild.sh* and *autotest.sh* will be run.
-You should make sure these two scripts are placed in the root of your target Repo properly.
-
-After you pull your commits to Github, Github will inform our HTTP server.
-
-*NOTE: Only commits whose message starts with AUTOTEST will trigger a rebuild and re-test.*
-
-Example:
-
-git commit -am"AUTOTEST blabla"
-
-git pull
-
-
+It is recommended to start the frontend/backend in tmux so that they will not be
+killed when you log out.

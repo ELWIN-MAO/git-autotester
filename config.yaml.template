@@ -2,7 +2,14 @@
 :port: 4567
 
 :sleep: 5
+
+## The maximum seconds allowed for a 'git clone' to complete.
+##
+## Increate the value if you are testing large repos or suffering from slow
+## network connections.
 :git_timeout: 20
+
+## Domain name used to create links in mail notifications
 :domain_name: "os.cs.tsinghua.edu.cn:3100"
 
 :registration:
@@ -24,8 +31,8 @@
 
 :mail:
         :from: "autotest@os.cs.tsinghua.edu.cn"
-        :cc:   ['chyh1990@gmail.com']
-        :daily_to: ['ucore_dev1@googlegroups.com', 'chyh1990@gmail.com']
+        :cc:   ['eternal.n08@gmail.com']
+        :daily_to: ['ucore_dev1@googlegroups.com', 'eternal.n08@gmail.com']
 
 :jobs:
         :daily_report: ["00:00"]
@@ -35,8 +42,13 @@
                   :upstream: "origin/master"
                   :branches: ["m2", "m1"]
 
-:repo_abspath: "/home/chenyh/os/tmp"
-:result_abspath: "/home/chenyh/os/tmp/result"
+## Absolute path of the directory where cloned repos should be placed
+:repo_abspath: "/opt/repos"
+
+## Absolute path of the directory where test reports should be placed
+:result_abspath: "/opt/results"
+
+## Repos to be tested
 :repos:
         - :name: "autobuild_tester"
           :url: "git://github.com/chyh1990/autobuild_tester.git"
@@ -49,7 +61,7 @@
                 - [ "ext", [".c", ".h", ".S", ".sh", ".s", ""] ]
 
         - :name: "autobuild_tester_merge"
-          :url: "/home/chenyh/os/autobuild_tester"
+          :url: "/opt/os/autobuild_tester"
           :whitelist: [ "automerge-.+" ]
           :nomail: true
           :public: false
