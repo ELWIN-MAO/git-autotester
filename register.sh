@@ -10,6 +10,13 @@ $REQUEST fetch $REQUEST_QUEUE | sort | uniq | while read line; do
     repo="${array[0]}"
     email="${array[1]}"
     is_public="${array[2]}"
+    trusted="${array[3]}"
+
+    # Trusted repos
+    if [ "$trusted" = "1" ]; then
+	echo "OK|$line"
+	continue
+    fi
 
     # Do we have this repo already registered?
     if grep -q "$email:${repo##*/}" config.yaml; then

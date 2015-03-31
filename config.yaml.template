@@ -13,9 +13,9 @@
 :domain_name: "os.cs.tsinghua.edu.cn:3100"
 
 :registration:
-        :enable: false
-        :queue: "registration_queue.txt"
-        :history: "registration_history"
+        :frontend_enable: false
+        :backend_enable: true
+        :queue: "registration"
 
 :marking:
         :enable: false

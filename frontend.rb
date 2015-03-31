@@ -184,14 +184,14 @@ get '/repo/:repo/:commit/:arch_or_lab/:testcase' do
 end
 
 get '/register' do
-    if not $CONFIG[:registration][:enable]
+    if not $CONFIG[:registration][:frontend_enable]
         erb :no_register
     else
         repo = params[:repo]
         email = params[:email]
         is_public = params[:is_public] == "on" ? "true" : "false"
         if repo != nil and email != nil
-            `#{REQUEST} append #{$CONFIG[:registration][:queue]} "#{repo}|#{email}|#{is_public}"`
+            `#{REQUEST} append #{$CONFIG[:registration][:queue]} "#{repo}|#{email}|#{is_public}|0"`
             erb :register_done
         else
             erb :register

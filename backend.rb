@@ -9,6 +9,7 @@ require 'time'
 require 'timeout'
 require 'socket'
 require 'mail'
+require 'fileutils'
 
 ROOT= File.dirname(File.expand_path __FILE__)
 CONFIG_FILE= File.join ROOT, "config.yaml"
@@ -303,7 +304,7 @@ class CompileRepo
         mail = Mail.new do
             from conf[:from]
             to   ref.commit.author.email
-            cc   (conf[:cc] || []) + @cc
+            cc   conf[:cc] || []
             subject "[Autotest][#{result[:ok]}] #{repo_name}:#{ref.name} #{ref.commit.id}"
             body b.join("\n")
             add_file report_file if report_file
@@ -316,6 +317,7 @@ class CompileRepo
         LOGGER.info "Repo #{@name}: OK, let's test branch #{ref.name}:#{ref.commit.id}"
 
         #now begin test
+        `#{ROOT}/scripts/update_scripts.sh`
         failed, result = @runner.run_all last_test_commit
         ok = failed ? "FAIL" : "OK"
         ## we can use c.to_hash
@@ -354,6 +356,7 @@ class CompileRepo
 
         last_test_file = File.join @result_dir, ".list"
         compiled_file = File.join @result_dir, ".compiled"
+        timestamp = File.join @result_dir, ".timestamp"
 
         last_test_list = Hash[File.readlines(last_test_file).map {|line| line.chomp.split(/\s/,2)}] rescue Hash.new
         compiled_list = File.readlines(compiled_file).map{|line| line.chomp} rescue []
@@ -421,6 +424,8 @@ class CompileRepo
         File.open(compiled_file, "a") do |f|
             new_compiled_list.each {|e| f.puts e}
         end
+
+        FileUtils.touch(timestamp)
     end
 end
 
@@ -640,7 +645,7 @@ def process_registration()
 
     cmd_output.each do |line|
         LOGGER.info line
-        status, repo_url, email, is_public = line.split('|')
+        status, repo_url, email, is_public, trusted = line.split('|')
         repo_name = "#{email}:#{repo_url.split('/')[-1]}"
         case status
         when "DUP"
@@ -655,7 +660,9 @@ def process_registration()
             notify_noemail(repo_url, email, repo_name)
         when "OK"
             register_repo(repo_name, repo_url, email, is_public)
-            notify_ok(repo_url, email, repo_name)
+            if not trusted
+                notify_ok(repo_url, email, repo_name)
+            end
         end
     end
 end
@@ -731,7 +738,7 @@ def startme
             Dir.chdir $CONFIG[:repo_abspath]
         end
 
-        process_registration unless not $CONFIG[:registration][:enable]
+        process_registration unless not $CONFIG[:registration][:backend_enable]
 
         process_marking authorized, repos unless not $CONFIG[:marking][:enable]
 
