@@ -45,7 +45,7 @@ case $COMMAND in
 esac
 
 case $COMMAND in
-    archive|archive-unique)
+    archive|archive-unique|flush)
 	rm $QUEUE_FILE
 	if [ -f $PENDING_FILE ]; then
 	    mv $PENDING_FILE $QUEUE_FILE
