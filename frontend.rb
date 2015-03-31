@@ -161,7 +161,7 @@ end
 get '/repo/:repo/:tid' do
     repo = params[:repo]
     tid = params[:tid]
-    halt 404 unless ReportCache.check_repo repo
+    halt 404 unless ReportCache.check_and_update repo
     cache = ReportCache[repo]
     halt 404 if cache.nil?
     @report = cache[tid]
